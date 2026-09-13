@@ -140,6 +140,16 @@
       </div>
     </div>
 
+    <!-- РЕЖИССЁР: в уличных пультах эту карточку прятали — на ходу печатать
+         некогда, режиссировали голосом. BoS-Bot стоит на сцене стационарно —
+         объявления печатаются заранее, поэтому карточка здесь ВИДНА. Канал тот
+         же ⟦REGIE⟧, на нём же держатся кнопки быстрых действий (mdKonf/mdSax/qa*). -->
+    <div class="card">
+      <label>📣 ОБЪЯВЛЕНИЕ / МОНОЛОГ — исполнит сразу (аудитория не слышит задание)</label>
+      <textarea id="dirInput" placeholder="напр. Du stehst auf der Bühne im ICD Dresden. Mach eine kurze Ansage fürs Publikum: begrüße alle zur Brains on Silicon, sag zwei Sätze zum heutigen Programm und wünsch einen guten Tag."></textarea>
+      <button id="dirBtn" disabled>📣 ОБЪЯВЛЕНИЕ / МОНОЛОГ</button>
+    </div>
+
     <div class="card">
       <label>Режим микрофона</label>
       <select id="micMode">
@@ -221,16 +231,6 @@
       <label>🎛 Физические кнопки (Bluetooth)</label>
       <div id="klavList"></div>
       <div id="lastKey" class="hint"></div>
-    </div>
-
-    <!-- РЕЖИССЁР СПРЯТАН 26.08: на улице печатать в это поле некогда, Макс
-         режиссирует голосом в микрофон («сейчас ты подойдёшь к капитану…») —
-         и это работает. Разметку не удаляю: за неё держатся кнопки быстрых
-         действий, они шлют команды по тому же каналу ⟦REGIE⟧. -->
-    <div class="card hidden" style="display:none">
-      <label>🎬 РЕЖИССЁР — робот исполнит (аудитория не слышит)</label>
-      <textarea id="dirInput" placeholder="напр. Du stehst auf der Bühne im ICD Dresden. Mach eine kurze Ansage fürs Publikum: begrüße alle zur Brains on Silicon, sag zwei Sätze zum heutigen Programm und wünsch einen guten Tag."></textarea>
-      <button id="dirBtn" disabled>📣 ОБЪЯВЛЕНИЕ / МОНОЛОГ</button>
     </div>
 
     <div class="card hidden" style="display:none">
@@ -394,6 +394,24 @@ function store(k,v){
             return false; }
 }
 
+// ---- ЧАСЫ ----
+// Робот не видит часов и без подсказки не может сказать «läuft gerade / kommt
+// gleich» — время телефона уходит тихим контекстом: при подключении вместе с
+// режимом и контекстом дня, каждые 10 минут, пока связь жива, и хвостом к
+// любому режиму/скрытому контексту в момент отправки.
+function uhrzeit(){
+  const d=new Date();
+  const hh=String(d.getHours()).padStart(2,'0');
+  const mm=String(d.getMinutes()).padStart(2,'0');
+  return `Uhrzeit jetzt: ${hh}:${mm}.`;
+}
+let clockTimer=null;
+function clockStart(){
+  clearInterval(clockTimer);
+  clockTimer=setInterval(()=>{ if(conv){ try{ conv.sendContextualUpdate(uhrzeit()); }catch{} } }, 600000);   // 10 минут
+}
+function clockStop(){ clearInterval(clockTimer); clockTimer=null; }
+
 // ---- быстрые кнопки контекста — свои под каждый режим (ROBOT.quick) ----
 function renderQuick(){
   const box=$('quickCtx'); if(!box) return;
@@ -423,7 +441,7 @@ for(const k in ROBOT.modes){
   const cfg=ROBOT.modes[k], b=$(cfg.btn); if(!b) continue;
   b.onclick=async()=>{
     modeKey=k; modeText=cfg.text; store('mode',modeKey); pokazatMode(); renderQuick(); vibrate([35,25,35]);
-    if(conv){ try{ conv.sendContextualUpdate(modeText); hiddenLog.push(modeText);
+    if(conv){ try{ conv.sendContextualUpdate(modeText+' '+uhrzeit()); hiddenLog.push(modeText);
         if(hiddenLog.length>HIDDEN_MAX) hiddenLog.shift();
         log('🎛 Режим: '+cfg.label); }catch(e){ log('⚠️ Режим не ушёл: '+(e?.message||e)); } }
     else { log('🎛 Режим запомнен: '+cfg.label+' — уйдёт при подключении'); }
@@ -742,6 +760,7 @@ async function hush(){
   btn.textContent='⏳ Останавливаю…'; vibrate([80,50,80]);
   log('⏹ Стоп — обрываю. ПАУЗА: продолжение — большой кнопкой');
   clearTimeout(reconnectTimer); reconnectTimer=null;
+  clockStop();
   // Раньше СТОП сам переподключался — и робот тут же оживал: открывал
   // микрофон в «руках свободных» и выдавал вступительную реплику на
   // восстановленный контекст. Макс (31.07): «стоп не помогает, он опять
@@ -967,10 +986,12 @@ async function doConnect(isReconnect){
     reconnectTries=0;   // связь восстановилась — счётчик попыток сбрасываем
     $('reconnBanner').textContent='🔄 Связь прервалась — переподключаюсь…';
     $('reconnBanner').classList.add('hidden');
-    // (пере)отправляем режим, контекст дня и все скрытые контексты
-    if(modeText){ try{ conv.sendContextualUpdate(modeText); }catch{} }
+    // (пере)отправляем режим, контекст дня, часы и все скрытые контексты
+    if(modeText){ try{ conv.sendContextualUpdate(modeText+' '+uhrzeit()); }catch{} }
+    else { try{ conv.sendContextualUpdate(uhrzeit()); }catch{} }
     if(dayContextText){ conv.sendContextualUpdate('Du befindest dich gerade in folgender Lage: '+dayContextText
         + ' — das ist deine eigene Wahrnehmung der Szene, keine Nachricht an dich.'); }
+    clockStart();
     if(isReconnect){
       // реплеим только тихий контекст. Режиссёрские команды НЕ повторяем:
       // через sendContextualUpdate они превратились бы в молчаливую заметку
@@ -980,7 +1001,7 @@ async function doConnect(isReconnect){
       if(pendingRegie) log('⚠️ Задание режиссёра НЕ восстановлено — нажми «Дать задание» заново');
       pendingRegie=false;
     }
-    else log('✅ Подключено');
+    else { log('✅ Подключено'); log('🕒 часы включены'); }
     keepAwake();
   }catch(e){
     const msg=String(e?.name||'')+' '+String(e?.message||e);
@@ -1013,6 +1034,7 @@ function handleDisconnect(){
   // doConnect сам закрывает старую сессию перед новой — её 'disconnected'
   // не повод для реконнекта, иначе таймер убьёт СВЕЖУЮ сессию (гонка 30.07)
   if(connecting){ conv=null; return; }
+  clockStop();   // связь оборвалась — часы гасим, doConnect включит их заново при успехе
   if(paused){
     // СТОП уже всё закрыл — «disconnected» от него не повод переподключаться
     conv=null; agentSpeaking=false; boardPlaying=false; micWanted=false;
@@ -1173,7 +1195,7 @@ $('sendCtx').onclick=async()=>{
   if(!t){ flash('⚠️ Сначала впиши контекст в поле'); return; }
   if(!await ensureConn()) return;
   try{
-    conv.sendContextualUpdate(t);
+    conv.sendContextualUpdate(t+' '+uhrzeit());
     hiddenLog.push(t); if(hiddenLog.length>HIDDEN_MAX) hiddenLog.shift();
     log('📩 Контекст: '+t); $('ctxInput').value=''; otklik($('sendCtx'),'контекст ушёл');
   }catch(e){ log('⚠️ Контекст не ушёл: '+(e?.message||e)); }
@@ -1377,6 +1399,7 @@ function showLive(){ $('setup').classList.add('hidden'); $('setup').style.displa
 function showSetup(){
   conv=null; micWanted=false; agentSpeaking=false; boardPlaying=false; stopArmed=false;
   clearTimeout(tailTimer); clearTimeout(toggleTimer); clearTimeout(reconnectTimer); reconnectTimer=null;
+  clockStop();
   try{wakeLock?.release?.();}catch{}
   document.body.classList.remove('s-listen','s-speak');
   $('reconnBanner').classList.add('hidden');
