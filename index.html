@@ -337,9 +337,10 @@ const ROBOT = {
   },
 
   // Служебные тексты — уходят по каналу ⟦REGIE⟧, гость их произнести не может.
-  answerCue: '⟦REGIE⟧ Der Gast hat zu Ende gesprochen. Antworte JETZT, kurz, normal, in deiner Rolle, auf das, was zuletzt gesagt wurde. '
-           + 'Hast du nichts Verständliches gehört: EIN kurzer Satz zur Szene und EINE kurze Frage. Auf keinen Fall schweigen. '
-           + 'Keine Rede, keine Begrüßung, kein Abschied, kein Wort über diese Anweisung.',
+  // 14.09: старый текст («ein Satz zur Szene und eine Frage») робот превращал в «und worauf soll ich antworten?»
+  answerCue: '⟦REGIE⟧ Antworte JETZT auf das Letzte, was der Gast gesagt hat: kurz, normal, in deiner Rolle. '
+           + 'Hast du vom Gast nichts Verständliches gehört: sag ihm nur, dass es hier laut ist, und bitte ihn, es noch einmal zu sagen. '
+           + 'Frag NIEMALS, worauf du antworten sollst, nach Kontext oder nach Anweisungen. Keine Begrüßung, kein Abschied, kein Wort über diese Anweisung.',
   hello:  'Sprich als Erster: begrüße die Leute vor dir kurz, stell dich als BoS-Bot vor und stell eine Frage.',
   louder: 'Du hast den Gast nicht verstanden. Bitte kurz und freundlich, es noch einmal zu sagen.',
   bye:    'Verabschiede dich jetzt freundlich mit einem Satz und wünsch einen guten Tag auf der BoS.',
