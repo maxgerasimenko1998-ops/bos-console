@@ -299,6 +299,7 @@ const ROBOT = {
   ns: 'bos:',                                   // префикс памяти браузера — у каждого пульта СВОЙ (общий домен GitHub Pages)
   agent: 'agent_6601m2e6af7ke108s12pqqbwgqy5',  // мозг в ElevenLabs
   title: 'BoS-Bot · Brains on Silicon',
+  version: '14.09.2026 16:00',              // видно в шапке — чтобы знать, какая версия открыта на телефоне
   dayCtx: 'Montag, 14. September 2026, Brains on Silicon im ICD Dresden. Du trägst das offizielle Event-Shirt.',   // предзаполнение поля «контекст дня» (оператор может править)
 
   // Режимы — стоячий контекст: уходит роботу при подключении и по нажатию
@@ -346,6 +347,7 @@ const ROBOT = {
   bye:    'Verabschiede dich jetzt freundlich mit einem Satz und wünsch einen guten Tag auf der BoS.',
 };
 document.title = 'Пульт ' + ROBOT.title;
+try{ const h=document.querySelector('h1'); if(h && ROBOT.version) h.insertAdjacentHTML('beforeend',' <small style="font-size:11px;opacity:.6;font-weight:400">v '+ROBOT.version+'</small>'); }catch{}
 // ===== конец блока настройки =====
 
 // ПАМЯТЬ БРАУЗЕРА — ТОЛЬКО СВОЯ. Все пульты живут на одном домене
@@ -882,11 +884,15 @@ document.addEventListener('visibilitychange',()=>{
 // навсегда, потому что память браузера ОБЩАЯ на весь домен GitHub Pages.
 // Теперь свой агент подставляется сам, а чужой пульт честно об этом говорит.
 const SVOJ_AGENT=ROBOT.agent;
+// 14.09: мозг берётся из ФАЙЛА (ROBOT.agent). Память телефона его больше не переопределяет —
+// иначе после смены мозга в файле телефон молча продолжает ходить в старый. ?agent=… в ссылке
+// действует только на этот запуск.
+let agentIzUrl='';
 try{
   const qa=new URLSearchParams(location.search).get('agent');
-  if(qa && /^agent_[a-z0-9]+$/i.test(qa)){ LS.set('agentId',qa); history.replaceState(null,'',location.pathname); }
+  if(qa && /^agent_[a-z0-9]+$/i.test(qa)){ agentIzUrl=qa; history.replaceState(null,'',location.pathname); }
 }catch{}
-$('agentId').value=LS.get('agentId')||SVOJ_AGENT;
+$('agentId').value=agentIzUrl||SVOJ_AGENT;
 $('dayCtx').value=LS.get('dayCtx')||ROBOT.dayCtx;
 function log(l){ const e=$('log'); e.textContent+=l+'\n'; e.scrollTop=e.scrollHeight; }
 // НИКАКИХ alert(): Chrome предлагает «Dialogfelder unterdrücken», после чего
