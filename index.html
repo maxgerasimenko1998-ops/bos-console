@@ -1162,12 +1162,20 @@ async function answerNow(){
   try{
     if(!await ensureConn()){ log('⚠️ ОТВЕЧАЙ не ушло — нет связи'); otklik($('qaAnswer'),'нет связи',false); flash('⚠️ Нет связи — сначала «Подключиться»'); return; }
     if(quiet) setQuiet(false);
-    const back = micWanted && micMode()==='open';   // «руки свободны» — вход вернём
-    if(micWanted) setWanted(false);                 // чтобы свой же ответ не влетел во вход
+    // 14.09, конференция: в гуле зала сервер держит ход гостя «открытым» и команда встаёт
+    // в очередь. Две ступени: 1) команда СРАЗУ, микрофон не трогаем (звук течёт — серверу
+    // есть в чём услышать тишину); 2) если за 2,5 с робот не заговорил — 1,5 с закрытого
+    // входа, чтобы ход гостя точно закрылся, потом вход обратно (в режиме «руки свободны»).
     expectReply();
-    try{ conv.sendUserMessage(ANSWER_CUE); log('⏭ Хватит слушать — отвечает на последнее'); }
+    try{ conv.sendUserMessage(ANSWER_CUE); log('⏭ ОТВЕЧАЙ — команда ушла'); }
     catch(e){ log('⚠️ Не ушло: '+(e?.message||e)); }
-    if(back){ await new Promise(r=>setTimeout(r,600)); setWanted(true); }
+    for(let i=0;i<10 && !agentSpeaking && conv;i++) await new Promise(r=>setTimeout(r,250));
+    if(conv && !agentSpeaking && micWanted && micMode()==='open'){
+      micWanted=false; applyMic(); b.innerHTML='⏳ закрываю ход гостя…';
+      log('⏭ …робот не начал — даю 1,5 с тишины, чтобы закрыть ход гостя');
+      await new Promise(r=>setTimeout(r,1500));
+      if(conv && micMode()==='open' && !quiet){ micWanted=true; applyMic(); }
+    }
   } finally {
     b.innerHTML=was; b.disabled=false; answerBusy=false;
     otklik($('qaAnswer')||b, conv?'ушло':'нет связи', !!conv);
