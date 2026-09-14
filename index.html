@@ -123,6 +123,10 @@
   <label style="position:fixed;left:-9999px;top:0" aria-hidden="true"><input type="checkbox" switch id="haptSw"></label>
   <div id="live" class="hidden" style="display:none;flex-direction:column;gap:12px">
     <button id="ptt">🎤 ГОВОРИТЬ<br><small>микрофон выключен</small></button>
+    <div id="micModeRow" style="display:flex;gap:8px">
+      <button id="mmOpen" style="flex:1;height:60px;background:#1e8449">🙌 СВОБОДНЫЕ РУКИ<br><small>слушает сам, всегда</small></button>
+      <button id="mmToggle" style="flex:1;height:60px;background:#555">👆 ПО КНОПКЕ<br><small>слушает только после «ГОВОРИТЬ»</small></button>
+    </div>
     <button id="answerNow" class="hidden" style="display:none"></button>
     <button id="stopTalk" style="background:#8e2020;height:64px;touch-action:manipulation;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none">✋ ХВАТИТ<br><small>замолчать и не слушать · связь остаётся</small></button>
     <button id="hushBtn2" style="background:#5a1616;height:56px;touch-action:manipulation">⏹ ПОЛНЫЙ СТОП<br><small>оборвать связь совсем · продолжить — «ГОВОРИТЬ»</small></button>
@@ -734,7 +738,7 @@ $('micRetry').onclick=()=>reacquireMic('вручную');
 // ---- режим микрофона ----
 const micMode = () => $('micMode').value;
 // осталось два режима; сохранённый «toggle» со старых версий превращаем в hold
-$('micMode').value = (LS.get('micMode')==='open') ? 'open' : 'toggle';
+$('micMode').value = (LS.get('micMode')==='toggle') ? 'toggle' : 'open';   // 14.09: по умолчанию РУКИ СВОБОДНЫ — с пустой памятью пульт падал в «по кнопке» и гас через 15 с
 $('micMode').onchange=()=>{
   // Сессию НЕ трогаем: переключение режима на живом разговоре роняло связь
   // (01.08). Просто меняем состояние микрофона.
@@ -744,7 +748,17 @@ $('micMode').onchange=()=>{
   micWanted = (m==='open') && !!conv;
   vibrate(30); applyMic();
   log(m==='open' ? '📢 Руки свободны — микрофон открыт' : '🎤 Держи и говори — жми большую кнопку');
+  refreshMicModeBtns();
 };
+// 14.09: режим микрофона — двумя большими кнопками под ГОВОРИТЬ, а не селектом в «тонкой настройке»
+function refreshMicModeBtns(){
+  const m=micMode(); const o=$('mmOpen'), t=$('mmToggle'); if(!o||!t) return;
+  o.style.outline = m==='open' ? '3px solid #fff' : 'none';   o.style.opacity = m==='open' ? '1' : '0.5';
+  t.style.outline = m==='toggle' ? '3px solid #fff' : 'none'; t.style.opacity = m==='toggle' ? '1' : '0.5';
+}
+$('mmOpen').onclick=()=>{ $('micMode').value='open'; $('micMode').onchange(); otklik($('mmOpen'),'руки свободны'); };
+$('mmToggle').onclick=()=>{ $('micMode').value='toggle'; $('micMode').onchange(); otklik($('mmToggle'),'по кнопке'); };
+refreshMicModeBtns();
 
 // ---- ЗАТКНИСЬ: мгновенно глушим звук, сессию НЕ рвём ----
 // Публичного interrupt() в SDK нет (в WebRTC он вообще no-op), setVolume срабатывает за ~3 мс.
